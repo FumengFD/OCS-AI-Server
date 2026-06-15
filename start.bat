@@ -27,8 +27,8 @@ if "%PYTHON%"=="" (
 if "%PYTHON%"=="" (
     echo [FAIL] Python not found.
     where winget >nul 2>&1 && (
-        echo [INFO] Installing Python via winget...
-        winget install -e --id Python.Python.3.11 --silent >nul 2>&1
+        echo [INFO] Installing Python via winget (this may take a few minutes)...
+    winget install -e --id Python.Python.3.11 2>&1
         if errorlevel 1 goto no_python
         echo [ OK ] Python installed via winget
         set PYTHON=python
