@@ -24,20 +24,16 @@ if "%PYTHON%"=="" (
 if "%PYTHON%"=="" (
     where python >nul 2>&1 && python --version >nul 2>&1 && set PYTHON=python
 )
+if not "%PYTHON%"=="" goto after_python
 if "%PYTHON%"=="" (
     echo [FAIL] Python not found.
-    where winget >nul 2>&1 && (
-        echo [INFO] Installing Python via winget (this may take a few minutes)...
-    winget install -e --id Python.Python.3.11 2>&1
-        if errorlevel 1 goto no_python
-        echo [ OK ] Python installed via winget
-        set PYTHON=python
-        goto after_python
-    )
+    where winget >nul 2>&1 || goto no_python
 )
-if "%PYTHON%"=="" (
-    goto no_python
-)
+echo [INFO] Installing Python via winget...
+winget install -e --id Python.Python.3.11 --silent
+if errorlevel 1 goto no_python
+echo [ OK ] Python installed via winget
+set PYTHON=python
 goto after_python
 
 :no_python
