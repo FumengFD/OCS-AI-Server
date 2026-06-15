@@ -27,12 +27,15 @@ echo [FAIL] Python not found.
 where winget >nul 2>&1 || goto no_python
 echo [INFO] Installing Python via winget...
 winget install -e --id Python.Python.3.11 --silent --accept-package-agreements --accept-source-agreements
-if errorlevel 1 goto no_python
-echo [ OK ] Python installed
+
+REM Re-check if Python was actually installed
 set PYTHON=
 where python >nul 2>&1 && python --version >nul 2>&1 && set PYTHON=python
 if "%PYTHON%"=="" where py >nul 2>&1 && set PYTHON=py -3
+if "%PYTHON%"=="" for %%d in (Python313 Python312 Python311 Python310) do if exist "%LOCALAPPDATA%\Programs\Python\%%d\python.exe" set PYTHON=%LOCALAPPDATA%\Programs\Python\%%d\python.exe
+if "%PYTHON%"=="" for %%d in (Python313 Python312 Python311 Python310) do if exist "%ProgramFiles%\%%d\python.exe" set PYTHON=%ProgramFiles%\%%d\python.exe
 if "%PYTHON%"=="" goto no_python
+echo [ OK ] Python installed
 goto after_python
 
 :no_python
