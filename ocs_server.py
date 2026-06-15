@@ -755,7 +755,12 @@ CONFIG_HOME = '<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><title
 '<div class="step">1. 安装 <a href="https://docs.ocsjs.com/docs/script" target="_blank">ScriptCat + OCS 脚本</a></div>' + \
 '<div class="step">2. OCS 面板 → 通用 → 全局设置 → 题库配置 → 粘贴上方 JSON</div>' + \
 '<div class="step">3. 解析器选 <strong>默认</strong> → 保存 → 进入答题页面</div>' + \
+'<div style="margin-top:16px"><a href="/setup">修改模型/Key</a></div>' + \
 '</div></body></html>'
+
+async def config_page(request):
+    from starlette.responses import HTMLResponse
+    return HTMLResponse(CONFIG_PAGE)
 
 async def config_page_route(request):
     from starlette.responses import HTMLResponse
@@ -772,6 +777,7 @@ routes = [
     Route("/api/search", search, methods=["POST", "OPTIONS"]),
     Route("/search", search, methods=["POST", "OPTIONS"]),
     Route("/", config_page_route, methods=["GET"]),
+    Route("/setup", config_page, methods=["GET"]),
     Route("/api/save", save_config, methods=["POST"]),
     Route("/api/status", api_status, methods=["GET"]),
 ]
