@@ -123,6 +123,23 @@ if not "%K%"=="" (
 ) else (
     echo [WARN] No key entered
 )
+
+echo.
+echo Install MinerU OCR for image questions? (requires ~2GB download)
+echo  y) Yes - install MinerU (recommended if using text-only model)
+echo  n) No - skip (images will not be processed)
+set /p M="> "
+if /i "%M%"=="y" (
+    echo [INFO] Installing MinerU OCR (may take a few minutes)...
+    %PYTHON% -m pip install "mineru[core]"
+    if errorlevel 1 (
+        echo [WARN] MinerU install failed. Try manually: pip install mineru[core]
+        pause
+    ) else (
+        echo [ OK ] MinerU OCR installed
+    )
+)
+
 echo.
 :after_key
 
