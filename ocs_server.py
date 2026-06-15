@@ -36,7 +36,7 @@ from starlette.routing import Route
 from starlette.middleware.cors import CORSMiddleware
 import uvicorn
 
-# ── 配置 ───────────────────────────────────────────────────────
+# -- 配置 -------------------------------------------------------
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
@@ -47,7 +47,7 @@ MAX_RETRIES = int(os.getenv("MAX_RETRIES", "2"))
 CACHE_SIZE = int(os.getenv("CACHE_SIZE", "500"))
 MAX_QUESTION_LEN = int(os.getenv("MAX_QUESTION_LEN", "2000"))  # 题目最大字符数
 
-# ── 统计 ───────────────────────────────────────────────────────
+# -- 统计 -------------------------------------------------------
 
 stats = {
     "total_requests": 0, "cache_hits": 0, "ai_success": 0,
@@ -55,7 +55,7 @@ stats = {
     "last_error": None, "last_error_time": None,
 }
 
-# ── LRU 缓存 ─────────────────────────────────────────────────
+# -- LRU 缓存 -------------------------------------------------
 
 class AnswerCache:
     def __init__(self, maxsize=500):
@@ -86,7 +86,7 @@ class AnswerCache:
 
 cache = AnswerCache(maxsize=CACHE_SIZE)
 
-# ── AI ───────────────────────────────────────────────────────
+# -- AI -------------------------------------------------------
 
 ai: Optional[AsyncOpenAI] = None
 
@@ -275,7 +275,7 @@ async def _vision_answer(client, prompt: str, images: list[bytes], qtype: str, n
             raise RuntimeError(f"Vision API错误: {e}")
 
 
-# ── 图片处理 ───────────────────────────────────────────────
+# -- 图片处理 -----------------------------------------------
 
 VISION_MODEL = os.getenv("VISION_MODEL", "")
 VISION_CAPABLE = False  # 自动检测结果，启动时确定
@@ -516,7 +516,7 @@ async def get_answer(question: str, options: list[str], qtype: str) -> tuple[lis
         raise
 
 
-# ── 类型映射 ───────────────────────────────────────────────
+# -- 类型映射 -----------------------------------------------
 
 TYPE_MAP = {
     "0": "single", "1": "multiple", "2": "completion",
@@ -534,7 +534,7 @@ def map_type(raw) -> str:
     return TYPE_MAP.get(str(raw), str(raw) if raw else "single")
 
 
-# ── HTTP Handlers ──────────────────────────────────────────
+# -- HTTP Handlers ------------------------------------------
 
 async def health(request):
     return JSONResponse({
@@ -579,7 +579,7 @@ async def search(request):
     if not question:
         return JSONResponse({"code": -1, "msg": "question为空"}, status_code=400)
 
-    # ── 图片处理：从题目和选项中提取 URL 并识别文字 ──
+    # -- 图片处理：从题目和选项中提取 URL 并识别文字 --
     url_pattern = re.compile(r'https?://[^\s,;，；]+')
     all_urls = url_pattern.findall(question)
     for opt in options:
@@ -634,7 +634,7 @@ async def search(request):
         })
 
 
-# ── App ────────────────────────────────────────────────────
+# -- App ----------------------------------------------------
 
 routes = [
     Route("/health", health, methods=["GET"]),
@@ -647,9 +647,105 @@ routes = [
 app = Starlette(routes=routes)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# ── 入口 ────────────────────────────────────────────────────
+# -- 交互式配置（首次运行） ---------------------
+
+def interactive_setup():
+    """第一次运行时引导用户配置"""
+    print()
+    print("=== ocs-AI-bridge Setup ===")
+    print()
+
+    if os.path.exists(".env"):
+        from dotenv import dotenv_values
+        env = dotenv_values(".env")
+        if env.get("DEEPSEEK_API_KEY", ""):
+            return  # 已有配置
+
+    print("Select AI model:")
+    models = [
+        ("1", "DeepSeek V4 Flash", "https://api.deepseek.com", "deepseek-v4-flash"),
+        ("2", "DeepSeek V4 Pro", "https://api.deepseek.com", "deepseek-v4-pro"),
+        ("3", "GPT-4o (OpenAI)", "https://api.openai.com/v1", "gpt-4o"),
+        ("4", "Qwen-Plus", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-plus"),
+        ("5", "Qwen-Max", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-max"),
+        ("6", "Groq Llama 3.3", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
+        ("7", "Moonshot V1", "https://api.moonshot.cn/v1", "moonshot-v1-auto"),
+        ("8", "GLM-4-Flash", "https://open.bigmodel.cn/api/paas/v4", "glm-4-flash"),
+        ("9", "GLM-4-Plus", "https://open.bigmodel.cn/api/paas/v4", "glm-4-plus"),
+    ]
+    for num, name, _, _ in models:
+        print(f"  {num}) {name}")
+    print()
+    choice = input("Enter number (1-9, default=1): ").strip() or "1"
+    url = "https://api.deepseek.com"
+    model_name = "deepseek-v4-flash"
+    for num, _, u, m in models:
+        if choice == num:
+            url, model_name = u, m
+            break
+
+    print(f"\nSelected: {model_name}")
+    key = input("Paste your API key: ").strip()
+    if not key:
+        print("[WARN] No API key entered, server may not work")
+
+    with open(".env", "w") as f:
+        f.write(f"DEEPSEEK_API_KEY={key}\n")
+        f.write(f"DEEPSEEK_BASE_URL={url}\n")
+        f.write(f"DEEPSEEK_MODEL={model_name}\n")
+
+    mineru = input("\nInstall MinerU OCR? (y/n, ~2GB): ").strip().lower()
+    if mineru == "y":
+        print("[INFO] Installing MinerU OCR...")
+        subprocess.run([sys.executable, "-m", "pip", "install", "mineru[core]"],
+                       shell=True)
+
+    vm = input("\nVision model (press Enter to skip):\nExample: gpt-4o\n> ").strip()
+    if vm:
+        with open(".env", "a") as f:
+            f.write(f"VISION_MODEL={vm}\n")
+        print(f"[ OK ] Vision model set to {vm}")
+
+    # 证书
+    if not os.path.exists("cert.pem") or not os.path.exists("key.pem"):
+        print("[INFO] Generating HTTPS cert...")
+        try:
+            from cryptography import x509
+            from cryptography.x509.oid import NameOID
+            from cryptography.hazmat.primitives import hashes, serialization
+            from cryptography.hazmat.primitives.asymmetric import rsa
+            import datetime, ipaddress
+            key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+            subj = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
+            cert = (x509.CertificateBuilder()
+                    .subject_name(subj).issuer_name(subj)
+                    .public_key(key.public_key()).serial_number(1000)
+                    .not_valid_before(datetime.datetime.utcnow())
+                    .not_valid_after(datetime.datetime.utcnow() + datetime.timedelta(days=365))
+                    .add_extension(x509.SubjectAlternativeName([
+                        x509.DNSName("localhost"),
+                        x509.IPAddress(ipaddress.IPv4Address("127.0.0.1"))
+                    ]), critical=False)
+                    .sign(key, hashes.SHA256()))
+            with open("cert.pem", "wb") as f:
+                f.write(cert.public_bytes(serialization.Encoding.PEM))
+            with open("key.pem", "wb") as f:
+                f.write(key.private_bytes(
+                    serialization.Encoding.PEM,
+                    serialization.PrivateFormat.TraditionalOpenSSL,
+                    serialization.NoEncryption()))
+            print("[ OK ] HTTPS cert generated")
+            subprocess.run(["certutil", "-user", "-addstore", "Root", "cert.pem"],
+                           capture_output=True, shell=True)
+        except Exception:
+            print("[WARN] Cert generation failed, server will use HTTP")
+
+    print("\n[ OK ] Setup complete! Starting server...\n")
 
 if __name__ == "__main__":
+    # 首次运行交互配置
+    interactive_setup()
+
     import os as _os
     cert_dir = _os.path.dirname(_os.path.abspath(__file__))
     cert_file = _os.path.join(cert_dir, "cert.pem")
