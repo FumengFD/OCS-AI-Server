@@ -64,6 +64,9 @@ if errorlevel 1 (
         exit /b 1
     )
     echo [ OK ] Dependencies installed
+) else (
+    echo [ OK ] Core deps
+)
 
 REM MinerU
 %PYTHON% -c "import mineru" >nul 2>&1
