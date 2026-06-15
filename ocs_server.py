@@ -200,7 +200,7 @@ def parse_answer(raw: str, qtype: str, n_opts: int) -> list[str]:
 
     elif qtype == "completion":
         parts = [p.strip() for p in re.split(r'#|\n', raw) if p.strip()]
-        return parts if parts else ["默认答案"]
+        return parts if parts else ["未知"]
 
     elif qtype == "line":
         # 连线题：提取字母
