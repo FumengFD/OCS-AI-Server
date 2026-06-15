@@ -634,6 +634,71 @@ async def search(request):
         })
 
 
+async def config_page(request):
+    from starlette.responses import HTMLResponse
+    return HTMLResponse(CONFIG_PAGE)
+
+async def save_config(request):
+    from starlette.responses import JSONResponse
+    try:
+        body = await request.json()
+        m = body.get("model", "deepseek-v4-flash")
+        u = body.get("base_url", "https://api.deepseek.com")
+        k = body.get("key", "")
+        v = body.get("vision", "")
+        if not k:
+            return JSONResponse({"ok": False, "error": "Key required"})
+        lines = ["DEEPSEEK_API_KEY=" + k, "DEEPSEEK_BASE_URL=" + u, "DEEPSEEK_MODEL=" + m]
+        if v:
+            lines.append("VISION_MODEL=" + v)
+        with open(".env", "w") as ef:
+            ef.write("\n".join(lines) + "\n")
+        os.environ["DEEPSEEK_API_KEY"] = k
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)})
+
+async def api_status(request):
+    from starlette.responses import JSONResponse
+    return JSONResponse({
+        "configured": bool(os.getenv("DEEPSEEK_API_KEY", "")),
+        "model": os.getenv("DEEPSEEK_MODEL", ""),
+        "uptime": round(time.time() - stats["start_time"]),
+    })
+
+CONFIG_PAGE = '<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><title>ocs-AI-bridge</title>' + \
+'<style>*{margin:0;padding:0}body{font-family:sans-serif;background:#f5f5f5;padding:20px;' + \
+'max-width:600px;margin:0 auto}.card{background:#fff;border-radius:8px;padding:24px;margin-top:16px}' + \
+'h1{font-size:20px;margin:0}h2{font-size:14px;color:#666;font-weight:400}' + \
+'label{display:block;margin:12px 0 4px}select,input{width:100%;padding:8px;border:1px solid #ddd;' + \
+'border-radius:6px;font-size:14px;box-sizing:border-box}button{background:#1677ff;color:#fff;' + \
+'border:none;border-radius:6px;padding:10px 20px;font-size:14px;cursor:pointer;margin-top:16px}' + \
+'.msg{padding:10px;border-radius:6px;margin-top:12px;display:none}.ok{background:#f6ffed;color:#389e0d}' + \
+'.err{background:#fff2f0;color:#cf1322}</style></head><body><div class="card">' + \
+'<h1>ocs-AI-bridge</h1><h2>Configure AI model</h2>' + \
+'<label>AI Model</label><select id="model">' + \
+'<option value="deepseek-v4-flash|https://api.deepseek.com">DeepSeek V4 Flash</option>' + \
+'<option value="gpt-4o|https://api.openai.com/v1">GPT-4o</option>' + \
+'<option value="qwen-plus|https://dashscope.aliyuncs.com/compatible-mode/v1">Qwen-Plus</option>' + \
+'<option value="glm-4-flash|https://open.bigmodel.cn/api/paas/v4">GLM-4-Flash</option></select>' + \
+'<label>API Key</label><input type="password" id="key" placeholder="Paste API Key">' + \
+'<label>Vision (optional)</label><input type="text" id="vision" placeholder="e.g. gpt-4o">' + \
+'<button onclick="save()">Save</button><div id="msg" class="msg"></div>' + \
+'<script>async function save(){' + \
+'var m=document.getElementById("model").value.split("|");' + \
+'var k=document.getElementById("key").value.trim();' + \
+'var v=document.getElementById("vision").value.trim();' + \
+'if(!k){var e=document.getElementById("msg");e.innerHTML="Enter a key";' + \
+'e.className="msg err";e.style.display="block";return}' + \
+'try{var r=await fetch("/api/save",{method:"POST",headers:{"Content-Type":"application/json"},' + \
+'body:JSON.stringify({model:m[0],base_url:m[1],key:k,vision:v})});' + \
+'var d=await r.json();var e=document.getElementById("msg");' + \
+'if(d.ok){e.innerHTML="Saved!";e.className="msg ok";e.style.display="block";' + \
+'setTimeout(function(){location.reload()},1000)}' + \
+'else{e.innerHTML=d.error;e.className="msg err";e.style.display="block"}}' + \
+'catch(ex){e.innerHTML="Error: "+ex.message;e.className="msg err";e.style.display="block"}}' + \
+'</script></body></html>'
+
 # -- App ----------------------------------------------------
 
 routes = [
@@ -641,7 +706,10 @@ routes = [
     Route("/stats", stats_handler, methods=["GET"]),
     Route("/adapter-service/search", search, methods=["POST", "OPTIONS"]),
     Route("/api/search", search, methods=["POST", "OPTIONS"]),
-    Route("/search", search, methods=["POST", "OPTIONS"]),  # 别名，绕过 OCS 强制 TikuAdapter 检测
+    Route("/search", search, methods=["POST", "OPTIONS"]),
+    Route("/", config_page, methods=["GET"]),
+    Route("/api/save", save_config, methods=["POST"]),
+    Route("/api/status", api_status, methods=["GET"]),
 ]
 
 app = Starlette(routes=routes)
@@ -651,86 +719,15 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 
 
-CONFIG_PAGE = """<!DOCTYPE html>
-<html lang="zh"><head><meta charset="UTF-8"><title>ocs-AI-bridge</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,sans-serif;background:#f5f5f5;padding:20px;max-width:600px;margin:0 auto}
-.card{background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);padding:24px;margin-top:16px}
-h1{font-size:20px;margin-bottom:8px}
-h2{font-size:14px;color:#666;margin-bottom:16px;font-weight:400}
-label{display:block;font-size:13px;color:#555;margin:12px 0 4px}
-select,input[type=text],input[type=password]{width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px}
-button{background:#1677ff;color:#fff;border:none;border-radius:6px;padding:10px 20px;font-size:14px;cursor:pointer;margin-top:16px}
-.msg{padding:10px;border-radius:6px;margin-top:12px;display:none}
-.ok{background:#f6ffed;color:#389e0d}
-.err{background:#fff2f0;color:#cf1322}
-pre{background:#f6f8fa;padding:12px;border-radius:6px;font-size:13px;overflow-x:auto;margin-top:16px}
-.mt{color:#666;font-size:13px;margin-top:12px;line-height:1.5}
-.step{background:#f0f5ff;border-left:3px solid #1677ff;padding:10px 14px;margin:8px 0;font-size:13px}
-</style></head><body><div class="card">
-<h1>ocs-AI-bridge</h1><h2>配置 AI 模型和 API Key</h2>
-<label>AI 模型</label><select id="model">
-<option value="deepseek-v4-flash|https://api.deepseek.com">DeepSeek V4 Flash</option>
-<option value="gpt-4o|https://api.openai.com/v1">GPT-4o</option>
-<option value="qwen-plus|https://dashscope.aliyuncs.com/compatible-mode/v1">Qwen-Plus</option>
-<option value="glm-4-flash|https://open.bigmodel.cn/api/paas/v4">GLM-4-Flash</option>
-</select>
-<label>API Key</label><input type="password" id="key" placeholder="粘贴 API Key" />
-<label>Vision 模型（可选）</label><input type="text" id="vision" placeholder="留空或 gpt-4o" />
-<button onclick="save()">保存并启动</button>
-<div id="msg" class="msg"></div>
-<script>
-async function save(){
-const m=document.getElementById('model').value.split('|');
-const k=document.getElementById('key').value.trim();
-const v=document.getElementById('vision').value.trim();
-if(!k){show('请输入Key','err');return}
-show('保存中...','ok');
-try{const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},
-body:JSON.stringify({model:m[0],base_url:m[1],key:k,vision:v})});
-const d=await r.json();
-if(d.ok){show('已保存，重启生效','ok');setTimeout(()=>location.reload(),1500)}
-else show(d.error,'err')
-}catch(e){show('失败: '+e.message,'err')}
-}
-function show(t,c){const e=document.getElementById('msg');e.textContent=t;e.className='msg '+c;e.style.display='block'}
-</script></body></html>"""
-
-@mcp.custom_route("/", ["GET"])
-async def config_page(request):
-    from starlette.responses import HTMLResponse
-    return HTMLResponse(CONFIG_PAGE)
-
-@mcp.custom_route("/api/save", ["POST"])
-async def save_config(request):
-    from starlette.responses import JSONResponse
-    try:
-        body = await request.json()
-        model = body.get("model", "deepseek-v4-flash")
-        url = body.get("base_url", "https://api.deepseek.com")
-        key = body.get("key", "")
-        vision = body.get("vision", "")
-        if not key: return JSONResponse({"ok": False, "error": "Key required"})
-        with open(".env", "w") as f:
-            f.write("DEEPSEEK_API_KEY=" + key)
-
-            f.write("DEEPSEEK_BASE_URL=" + url)
-
-            f.write("DEEPSEEK_MODEL=" + model)
-
-            if vision:
-                with open(".env", "a") as env:
-                    env.write("VISION_MODEL=" + vision + chr(10))
-
-        os.environ["DEEPSEEK_API_KEY"] = key
-        return JSONResponse({"ok": True})
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)})
 
 if __name__ == "__main__":
-    # 首次运行交互配置
-    interactive_setup()
+    # 首次运行打开浏览器配置
+    if not os.path.exists(".env") or not os.getenv("DEEPSEEK_API_KEY", ""):
+        import webbrowser
+        try:
+            webbrowser.open("http://127.0.0.1:" + os.getenv("BRIDGE_PORT", "8865") + "/")
+        except Exception:
+            pass
 
     import os as _os
     cert_dir = _os.path.dirname(_os.path.abspath(__file__))
