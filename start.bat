@@ -140,6 +140,20 @@ if /i "%M%"=="y" (
     )
 )
 
+REM Vision model
+echo.
+echo Vision model for image questions (press Enter to skip):
+echo  (leave blank = no vision, images use MinerU instead)
+echo  Example: gpt-4o  (if using same API)
+echo  Example: deepseek-chat
+set /p VM="> "
+if not "%VM%"=="" (
+    echo VISION_MODEL=%VM%>> .env
+    echo [ OK ] Vision model set to %VM%
+)
+
+echo.
+
 echo.
 :after_key
 
