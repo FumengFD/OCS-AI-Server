@@ -11,9 +11,16 @@ REM Find Python
 set PYTHON=
 where python >nul 2>&1 && python --version >nul 2>&1 && set PYTHON=python
 if "%PYTHON%"=="" where py >nul 2>&1 && set PYTHON=py -3
-if "%PYTHON%"=="" if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" set PYTHON=%LOCALAPPDATA%\Programs\Python\Python311\python.exe
-if "%PYTHON%"=="" if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" set PYTHON=%LOCALAPPDATA%\Programs\Python\Python312\python.exe
-if "%PYTHON%"=="" if exist "%LOCALAPPDATA%\Programs\Python\Python313\python.exe" set PYTHON=%LOCALAPPDATA%\Programs\Python\Python313\python.exe
+if "%PYTHON%"=="" (
+    for %%d in (Python313 Python312 Python311 Python310) do (
+        if exist "%LOCALAPPDATA%\Programs\Python\%%d\python.exe" set PYTHON=%LOCALAPPDATA%\Programs\Python\%%d\python.exe
+    )
+)
+if "%PYTHON%"=="" (
+    for %%d in (Python313 Python312 Python311 Python310) do (
+        if exist "%ProgramFiles%\%%d\python.exe" set PYTHON=%ProgramFiles%\%%d\python.exe
+    )
+)
 if not "%PYTHON%"=="" goto after_python
 
 echo [FAIL] Python not found.
