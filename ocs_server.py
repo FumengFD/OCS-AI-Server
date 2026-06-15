@@ -649,118 +649,84 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 # -- 交互式配置（首次运行） ---------------------
 
-def interactive_setup():
-    """第一次运行时引导用户配置"""
-    print()
-    print("=== ocs-AI-bridge Setup ===")
-    print()
 
-    if os.path.exists(".env"):
-        from dotenv import dotenv_values
-        env = dotenv_values(".env")
-        if env.get("DEEPSEEK_API_KEY", ""):
-            return  # 已有配置
 
-    print("Select AI model:")
-    models = [
-        ("1", "DeepSeek V4 Flash", "https://api.deepseek.com", "deepseek-v4-flash"),
-        ("2", "DeepSeek V4 Pro", "https://api.deepseek.com", "deepseek-v4-pro"),
-        ("3", "GPT-4o (OpenAI)", "https://api.openai.com/v1", "gpt-4o"),
-        ("4", "Qwen-Plus", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-plus"),
-        ("5", "Qwen-Max", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-max"),
-        ("6", "Groq Llama 3.3", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
-        ("7", "Moonshot V1", "https://api.moonshot.cn/v1", "moonshot-v1-auto"),
-        ("8", "GLM-4-Flash", "https://open.bigmodel.cn/api/paas/v4", "glm-4-flash"),
-        ("9", "GLM-4-Plus", "https://open.bigmodel.cn/api/paas/v4", "glm-4-plus"),
-    ]
-    for num, name, _, _ in models:
-        print(f"  {num}) {name}")
-    print()
-    choice = input("Enter number (1-9, default=1): ").strip() or "1"
-    url = "https://api.deepseek.com"
-    model_name = "deepseek-v4-flash"
-    for num, _, u, m in models:
-        if choice == num:
-            url, model_name = u, m
-            break
+CONFIG_PAGE = """<!DOCTYPE html>
+<html lang="zh"><head><meta charset="UTF-8"><title>ocs-AI-bridge</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,sans-serif;background:#f5f5f5;padding:20px;max-width:600px;margin:0 auto}
+.card{background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);padding:24px;margin-top:16px}
+h1{font-size:20px;margin-bottom:8px}
+h2{font-size:14px;color:#666;margin-bottom:16px;font-weight:400}
+label{display:block;font-size:13px;color:#555;margin:12px 0 4px}
+select,input[type=text],input[type=password]{width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px}
+button{background:#1677ff;color:#fff;border:none;border-radius:6px;padding:10px 20px;font-size:14px;cursor:pointer;margin-top:16px}
+.msg{padding:10px;border-radius:6px;margin-top:12px;display:none}
+.ok{background:#f6ffed;color:#389e0d}
+.err{background:#fff2f0;color:#cf1322}
+pre{background:#f6f8fa;padding:12px;border-radius:6px;font-size:13px;overflow-x:auto;margin-top:16px}
+.mt{color:#666;font-size:13px;margin-top:12px;line-height:1.5}
+.step{background:#f0f5ff;border-left:3px solid #1677ff;padding:10px 14px;margin:8px 0;font-size:13px}
+</style></head><body><div class="card">
+<h1>ocs-AI-bridge</h1><h2>配置 AI 模型和 API Key</h2>
+<label>AI 模型</label><select id="model">
+<option value="deepseek-v4-flash|https://api.deepseek.com">DeepSeek V4 Flash</option>
+<option value="gpt-4o|https://api.openai.com/v1">GPT-4o</option>
+<option value="qwen-plus|https://dashscope.aliyuncs.com/compatible-mode/v1">Qwen-Plus</option>
+<option value="glm-4-flash|https://open.bigmodel.cn/api/paas/v4">GLM-4-Flash</option>
+</select>
+<label>API Key</label><input type="password" id="key" placeholder="粘贴 API Key" />
+<label>Vision 模型（可选）</label><input type="text" id="vision" placeholder="留空或 gpt-4o" />
+<button onclick="save()">保存并启动</button>
+<div id="msg" class="msg"></div>
+<script>
+async function save(){
+const m=document.getElementById('model').value.split('|');
+const k=document.getElementById('key').value.trim();
+const v=document.getElementById('vision').value.trim();
+if(!k){show('请输入Key','err');return}
+show('保存中...','ok');
+try{const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},
+body:JSON.stringify({model:m[0],base_url:m[1],key:k,vision:v})});
+const d=await r.json();
+if(d.ok){show('已保存，重启生效','ok');setTimeout(()=>location.reload(),1500)}
+else show(d.error,'err')
+}catch(e){show('失败: '+e.message,'err')}
+}
+function show(t,c){const e=document.getElementById('msg');e.textContent=t;e.className='msg '+c;e.style.display='block'}
+</script></body></html>"""
 
-    print(f"\nSelected: {model_name}")
-    key = input("Paste your API key: ").strip()
-    if not key:
-        print("[WARN] No API key entered, server may not work")
+@mcp.custom_route("/", ["GET"])
+async def config_page(request):
+    from starlette.responses import HTMLResponse
+    return HTMLResponse(CONFIG_PAGE)
 
-    with open(".env", "w") as f:
-        f.write(f"DEEPSEEK_API_KEY={key}\n")
-        f.write(f"DEEPSEEK_BASE_URL={url}\n")
-        f.write(f"DEEPSEEK_MODEL={model_name}\n")
-
-    mineru = input("\nInstall MinerU OCR? (y/n, ~2GB): ").strip().lower()
-    if mineru == "y":
-        print("[INFO] Installing MinerU OCR...")
-        subprocess.run([sys.executable, "-m", "pip", "install", "mineru[core]"],
-                       shell=True)
-
-    vm = input("\nVision model (press Enter to skip):\nExample: gpt-4o\n> ").strip()
-    if vm:
-        with open(".env", "a") as f:
-            f.write(f"VISION_MODEL={vm}\n")
-        print(f"[ OK ] Vision model set to {vm}")
-
-    # 证书
-    if not os.path.exists("cert.pem") or not os.path.exists("key.pem"):
-        print("[INFO] Generating HTTPS cert...")
-        try:
-            from cryptography import x509
-            from cryptography.x509.oid import NameOID
-            from cryptography.hazmat.primitives import hashes, serialization
-            from cryptography.hazmat.primitives.asymmetric import rsa
-            import datetime, ipaddress
-            key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-            subj = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
-            cert = (x509.CertificateBuilder()
-                    .subject_name(subj).issuer_name(subj)
-                    .public_key(key.public_key()).serial_number(1000)
-                    .not_valid_before(datetime.datetime.utcnow())
-                    .not_valid_after(datetime.datetime.utcnow() + datetime.timedelta(days=365))
-                    .add_extension(x509.SubjectAlternativeName([
-                        x509.DNSName("localhost"),
-                        x509.IPAddress(ipaddress.IPv4Address("127.0.0.1"))
-                    ]), critical=False)
-                    .sign(key, hashes.SHA256()))
-            with open("cert.pem", "wb") as f:
-                f.write(cert.public_bytes(serialization.Encoding.PEM))
-            with open("key.pem", "wb") as f:
-                f.write(key.private_bytes(
-                    serialization.Encoding.PEM,
-                    serialization.PrivateFormat.TraditionalOpenSSL,
-                    serialization.NoEncryption()))
-            print("[ OK ] HTTPS cert generated")
-            subprocess.run(["certutil", "-user", "-addstore", "Root", "cert.pem"],
-                           capture_output=True, shell=True)
-        except Exception:
-            print("[WARN] Cert generation failed, server will use HTTP")
-
-    # 打开浏览器
-    import webbrowser
-    print()
-    print("Opening browser for setup...")
-    print("  Step 1: Install ScriptCat (userscript manager)")
-    print("  Step 2: Install OCS script")
-    print("  Step 3: Trust HTTPS cert")
-
+@mcp.custom_route("/api/save", ["POST"])
+async def save_config(request):
+    from starlette.responses import JSONResponse
     try:
-        webbrowser.open("https://docs.ocsjs.com/docs/script")
-        webbrowser.open("https://docs.ocsjs.com")
-        webbrowser.open(f"http{'s' if os.path.exists('cert.pem') else ''}://localhost:{BRIDGE_PORT}/health")
-    except Exception:
-        print("  Could not open browser automatically.")
-        print(f"  Manual: Open https://localhost:{BRIDGE_PORT}/health in browser")
+        body = await request.json()
+        model = body.get("model", "deepseek-v4-flash")
+        url = body.get("base_url", "https://api.deepseek.com")
+        key = body.get("key", "")
+        vision = body.get("vision", "")
+        if not key: return JSONResponse({"ok": False, "error": "Key required"})
+        with open(".env", "w") as f:
+            f.write("DEEPSEEK_API_KEY=" + key)
 
-    print()
-    print("In OCS settings, configure:")
-    print("  JSON config -> paste from README")
-    print()
-    print("[ OK ] Setup complete! Starting server...\n")
+            f.write("DEEPSEEK_BASE_URL=" + url)
+
+            f.write("DEEPSEEK_MODEL=" + model)
+
+            if vision:
+                with open(".env", "a") as env:
+                    env.write("VISION_MODEL=" + vision + chr(10))
+
+        os.environ["DEEPSEEK_API_KEY"] = key
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)})
 
 if __name__ == "__main__":
     # 首次运行交互配置
