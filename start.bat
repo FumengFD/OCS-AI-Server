@@ -29,8 +29,11 @@ echo [INFO] Installing Python via winget...
 winget install -e --id Python.Python.3.11 --silent --accept-package-agreements --accept-source-agreements
 if errorlevel 1 goto no_python
 echo [ OK ] Python installed
-set PYTHON=python
-if not "%PYTHON%"=="" goto after_python
+set PYTHON=
+where python >nul 2>&1 && python --version >nul 2>&1 && set PYTHON=python
+if "%PYTHON%"=="" where py >nul 2>&1 && set PYTHON=py -3
+if "%PYTHON%"=="" goto no_python
+goto after_python
 
 :no_python
 echo [FAIL] Python not found. Download from: https://www.python.org/downloads/
