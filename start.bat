@@ -25,15 +25,14 @@ if "%PYTHON%"=="" (
     where python >nul 2>&1 && python --version >nul 2>&1 && set PYTHON=python
 )
 if not "%PYTHON%"=="" goto after_python
-if "%PYTHON%"=="" (
-    echo [FAIL] Python not found.
-    where winget >nul 2>&1 || goto no_python
-)
+
+echo [FAIL] Python not found.
+where winget >nul 2>&1 || goto no_python
+
 echo [INFO] Installing Python via winget...
 winget install -e --id Python.Python.3.11 --silent --accept-package-agreements --accept-source-agreements
 if errorlevel 1 goto no_python
-echo [ OK ] Python installed via winget
-REM Re-detect Python path (winget doesn't update PATH)
+echo [ OK ] Python installed
 set PYTHON=
 for %%p in (
     "%LOCALAPPDATA%\Programs\Python\Python313\python.exe"
@@ -42,8 +41,7 @@ for %%p in (
     "%LOCALAPPDATA%\Programs\Python\Python310\python.exe"
 ) do if exist "%%~p" set PYTHON=%%~p
 if "%PYTHON%"=="" where py >nul 2>&1 && set PYTHON=py -3
-if "%PYTHON%"=="" goto no_python
-goto after_python
+if not "%PYTHON%"=="" goto after_python
 
 :no_python
 echo [FAIL] Python not found.
@@ -64,95 +62,63 @@ goto after_key
 
 :ask_key
 echo.
-echo Select your AI model:
-echo.
-echo  1) DeepSeek V4 Flash  (default, fast/cheap)
-echo     API: api.deepseek.com / model: deepseek-v4-flash
-echo.
-echo  2) DeepSeek V4 Pro  (more accurate)
-echo     API: api.deepseek.com / model: deepseek-v4-pro
-echo.
-echo  3) OpenAI GPT-4o  (multimodal, no MinerU needed)
-echo     API: api.openai.com/v1 / model: gpt-4o
-echo.
-echo  4) Qwen-Plus  (通义千问)
-echo     API: dashscope.aliyuncs.com/compatible-mode/v1 / model: qwen-plus
-echo.
-echo  5) Qwen-Max  (通义千问, stronger)
-echo     API: dashscope.aliyuncs.com/compatible-mode/v1 / model: qwen-max
-echo.
-echo  6) Groq Llama 3.3  (fast open-source)
-echo     API: api.groq.com/openai/v1 / model: llama-3.3-70b-versatile
-echo.
-echo  7) Moonshot V1  (月之暗面)
-echo     API: api.moonshot.cn/v1 / model: moonshot-v1-auto
-echo.
-echo  8) GLM-4-Flash  (智谱, fast/cheap)
-echo     API: open.bigmodel.cn/api/paas/v4 / model: glm-4-flash
-echo.
-echo  9) GLM-4-Plus  (智谱, stronger)
-echo     API: open.bigmodel.cn/api/paas/v4 / model: glm-4-plus
-echo.
+echo Select model:
+echo  1) DeepSeek V4 Flash
+echo  2) DeepSeek V4 Pro
+echo  3) GPT-4o (OpenAI)
+echo  4) Qwen-Plus
+echo  5) Qwen-Max
+echo  6) Groq Llama 3.3
+echo  7) Moonshot V1
+echo  8) GLM-4-Flash
+echo  9) GLM-4-Plus
 echo Enter number (1-9, default=1):
-set /p MODEL_NUM="> "
-if "%MODEL_NUM%"=="" set MODEL_NUM=1
+set /p N="> "
+if "%N%"=="" set N=1
 
-for %%a in (1 2 3 4 5 6 7 8 9) do if "%MODEL_NUM%"=="%%a" set MODEL_VALID=1
-if "%MODEL_VALID%"=="" set MODEL_NUM=1
-
-set API_KEY=
-if "%MODEL_NUM%"=="1" set BASE_URL=https://api.deepseek.com&set MODEL=deepseek-v4-flash
-if "%MODEL_NUM%"=="2" set BASE_URL=https://api.deepseek.com&set MODEL=deepseek-v4-pro
-if "%MODEL_NUM%"=="3" set BASE_URL=https://api.openai.com/v1&set MODEL=gpt-4o
-if "%MODEL_NUM%"=="4" set BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1&set MODEL=qwen-plus
-if "%MODEL_NUM%"=="5" set BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1&set MODEL=qwen-max
-if "%MODEL_NUM%"=="6" set BASE_URL=https://api.groq.com/openai/v1&set MODEL=llama-3.3-70b-versatile
-if "%MODEL_NUM%"=="7" set BASE_URL=https://api.moonshot.cn/v1&set MODEL=moonshot-v1-auto
-if "%MODEL_NUM%"=="8" set BASE_URL=https://open.bigmodel.cn/api/paas/v4&set MODEL=glm-4-flash
-if "%MODEL_NUM%"=="9" set BASE_URL=https://open.bigmodel.cn/api/paas/v4&set MODEL=glm-4-plus
+if "%N%"=="1" set URL=https://api.deepseek.com&set MODEL=deepseek-v4-flash
+if "%N%"=="2" set URL=https://api.deepseek.com&set MODEL=deepseek-v4-pro
+if "%N%"=="3" set URL=https://api.openai.com/v1&set MODEL=gpt-4o
+if "%N%"=="4" set URL=https://dashscope.aliyuncs.com/compatible-mode/v1&set MODEL=qwen-plus
+if "%N%"=="5" set URL=https://dashscope.aliyuncs.com/compatible-mode/v1&set MODEL=qwen-max
+if "%N%"=="6" set URL=https://api.groq.com/openai/v1&set MODEL=llama-3.3-70b-versatile
+if "%N%"=="7" set URL=https://api.moonshot.cn/v1&set MODEL=moonshot-v1-auto
+if "%N%"=="8" set URL=https://open.bigmodel.cn/api/paas/v4&set MODEL=glm-4-flash
+if "%N%"=="9" set URL=https://open.bigmodel.cn/api/paas/v4&set MODEL=glm-4-plus
 
 echo.
 echo Selected: %MODEL%
-echo Paste your API key (right-click or Ctrl+V, then Enter):
+echo Paste your API key:
 set /p K="> "
 if not "%K%"=="" (
     echo DEEPSEEK_API_KEY=%K%> .env
-    echo DEEPSEEK_BASE_URL=%BASE_URL%>> .env
+    echo DEEPSEEK_BASE_URL=%URL%>> .env
     echo DEEPSEEK_MODEL=%MODEL%>> .env
-    echo [ OK ] API key saved for %MODEL%
-) else (
-    echo [WARN] No key entered
+    echo [ OK ] API key saved
 )
-
 echo.
-echo Install MinerU OCR for image questions? (requires ~2GB download)
-echo  y) Yes - install MinerU (recommended if using text-only model)
-echo  n) No - skip (images will not be processed)
+
+echo Install MinerU OCR for images? (y/n, ~2GB):
 set /p M="> "
 if /i "%M%"=="y" (
-    echo [INFO] Installing MinerU OCR (may take a few minutes)...
+    echo [INFO] Installing MinerU OCR...
     %PYTHON% -m pip install "mineru[core]"
     if errorlevel 1 (
-        echo [WARN] MinerU install failed. Try manually: pip install mineru[core]
-        pause
+        echo [WARN] MinerU install failed. Run: pip install mineru[core]
     ) else (
         echo [ OK ] MinerU OCR installed
     )
 )
 
-REM Vision model
 echo.
-echo Vision model for image questions (press Enter to skip):
-echo  (leave blank = no vision, images use MinerU instead)
-echo  Example: gpt-4o  (if using same API)
-echo  Example: deepseek-chat
+echo Vision model (press Enter to skip):
+echo Example: gpt-4o  (if same API as selected)
+echo Example: deepseek-chat
 set /p VM="> "
 if not "%VM%"=="" (
     echo VISION_MODEL=%VM%>> .env
-    echo [ OK ] Vision model set to %VM%
+    echo [ OK ] Vision model set
 )
-
-echo.
 
 echo.
 :after_key
@@ -168,28 +134,28 @@ if exist "cert.pem" if exist "key.pem" (
     certutil -user -addstore Root cert.pem >nul 2>&1
     if not errorlevel 1 echo [ OK ] Cert trusted
 ) else (
-    %PYTHON% -m pip install pyOpenSSL cryptography >nul 2>&1 || echo [WARN] Cert generation may fail
+    %PYTHON% -m pip install pyOpenSSL cryptography >nul 2>&1 || echo [WARN] Cert gen failed
 )
 
 REM Core deps
 %PYTHON% -c "import starlette, uvicorn" >nul 2>&1
 if errorlevel 1 (
-    echo [INFO] Installing dependencies...
+    echo [INFO] Installing deps...
     %PYTHON% -m pip install -r requirements.txt
     if errorlevel 1 (
         echo [FAIL] pip install failed. Try: pip install -r requirements.txt
         pause
         exit /b 1
     )
-    echo [ OK ] Dependencies installed
+    echo [ OK ] Deps installed
 ) else (
     echo [ OK ] Core deps
 )
 
-REM MinerU
+REM MinerU check
 %PYTHON% -c "import mineru" >nul 2>&1
 if errorlevel 1 (
-    echo [INFO] MinerU not installed - image OCR disabled
+    echo [INFO] MinerU not installed (image OCR disabled)
 ) else (
     echo [ OK ] MinerU OCR
 )
