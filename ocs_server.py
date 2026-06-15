@@ -791,12 +791,16 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 
 if __name__ == "__main__":
-    # 每次启动打开浏览器
-    import webbrowser
-    try:
-        webbrowser.open("http://127.0.0.1:" + os.getenv("BRIDGE_PORT", "8865") + "/")
-    except Exception:
-        pass
+    # 每次启动延迟打开浏览器（等服务器就绪）
+    import threading, webbrowser
+    def _open_browser():
+        import time
+        time.sleep(3)
+        try:
+            webbrowser.open("http://127.0.0.1:" + os.getenv("BRIDGE_PORT", "8865") + "/")
+        except Exception:
+            pass
+    threading.Thread(target=_open_browser, daemon=True).start()
 
     import os as _os
     import sys as _sys
