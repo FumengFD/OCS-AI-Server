@@ -615,7 +615,7 @@ async def search(request):
         for url in all_urls[:6]:
             try:
                 txt = await extract_text_from_image(url)
-                if txt and not txt.startswith("[图片"):
+                if txt and not txt.startswith("[图片") and len(txt.strip()) >= 2:
                     img_texts.append(f"[图片文字]: {txt}")
             except Exception as e:
                 print(f"[{time.strftime('%H:%M:%S')}] IMG: failed {url[:60]} - {e}", file=sys.stderr, flush=True)
