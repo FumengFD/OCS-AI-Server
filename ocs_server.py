@@ -776,7 +776,7 @@ if __name__ == "__main__":
         import time
         time.sleep(3)
         try:
-            webbrowser.open(f"{proto}://127.0.0.1:{port}/")
+            webbrowser.open(f"http://127.0.0.1:{BRIDGE_PORT}/")
         except Exception:
             pass
     threading.Thread(target=_open_browser, daemon=True).start()
