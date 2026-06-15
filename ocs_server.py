@@ -792,7 +792,12 @@ if __name__ == "__main__":
             pass
 
     import os as _os
-    cert_dir = _os.path.dirname(_os.path.abspath(__file__))
+    import sys as _sys
+    # PyInstaller 打包后 __file__ 指向临时目录，用 executable 替代
+    if getattr(_sys, 'frozen', False):
+        cert_dir = _os.path.dirname(_os.path.abspath(_sys.executable))
+    else:
+        cert_dir = _os.path.dirname(_os.path.abspath(__file__))
     cert_file = _os.path.join(cert_dir, "cert.pem")
     key_file = _os.path.join(cert_dir, "key.pem")
     use_ssl = _os.path.exists(cert_file) and _os.path.exists(key_file)
